@@ -1145,7 +1145,7 @@ png("../Figures/FigX_Volumes.png",width = 1040, height = 1100, units = "px", poi
   #plot 1 - PCA
   par(mar=c(4, 5, 2, 2))  # sets the margins c(bottom, left, top, right)
   plot(PCA.vol$scores[,1],PCA.vol$scores[,2], asp=T, xlab= pc1lab.vol, ylab= pc2lab.vol, 
-       pch = fos.gp, cex = 1.5, bg = col.gp) # plots PCA
+       pch = fos.gp, cex = 1.5, col=col.gp, bg = col.gp) # plots PCA
   
   # Add coloured polygons for the following clades (including fossils)
 clades <- levels(as.factor(SpecData$Cladename))[c(1,2,4,7,11)]
