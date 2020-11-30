@@ -90,7 +90,7 @@ cols <- c("blue", "dark green", "#00CCCC", "#CC0000", "#0099FF", "light green",
 
 ## Make a pch vector for fossil versus non.fossil.
 fos.gp <- rep("21", length(col.gp))
-  fos.gp[which(gdf_automatic$SpecData.Fossil == "yes")] <- "24"
+  fos.gp[which(gdf_automatic$SpecData.Fossil == "yes")] <- "8"
   fos.gp <- as.numeric(fos.gp)
 
 # Make a short form vector for plotting species names, in G.sp formal
@@ -1071,7 +1071,7 @@ layout(mat,heights= c(1,0.75))# set the size of the rows and columns
 par(mar=c(4, 5, 0, 1))
 
 
- plot(log(Allom$data$Csize)[reorder], Allom_plot$RegScore[reorder], pch = fos.gp, bg=col.gp, 
+ plot(log(Allom$data$Csize)[reorder], Allom_plot$RegScore[reorder], pch = fos.gp, col=col.gp, bg=col.gp, 
        cex=1.5, xlab = "log(Centroid size)", ylab= "Regression Score")
  text( 4.5,-0.12, labels = "Peramelemorphia", col = "#9966FF" ) 
  text( 5.5,-0.05, labels = "Vombatiformes", col = "#FFCC00" )
