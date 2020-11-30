@@ -1,0 +1,916 @@
+---
+title: "02_1_Marsbrain_Analyses"
+author: "Vera Weisbecker & Emma Sherratt"
+date: "30/11/2020"
+output: html_document
+---
+
+---
+title: "02_Marsbrain_analyses"
+author: "Vera Weisbecker & Emma Sherratt"
+date: "25/11/2020"
+output: html_document
+---
+
+# Load libraries
+```{r}
+
+# Load libraries and version the code was last run on
+
+library(rgl) # version 0.100.54
+library(geomorph) #  version 3.3.1
+library(abind) # version 1.4.5
+library(plyr) # version 1.8.6
+library(vegan) # version 2.5-6
+library(ape) # version 5.4-1
+library(geiger)# version 2.0.7
+library(nlme) # version 3.1-149
+library(caper) # version 1.0.1
+library(phytools) # version 0.7-10
+
+load("../Data/Processed/brain_data_processed.rda")
+
+```
+
+#Adding a little function to summarize ANOVA results over multiple trees (note that this is only semi-automated - some df numbers need to be entered manually into the published table)
+
+```{r}
+
+mean.tree.results <- function (Resultslist){
+   
+    c (
+   
+  round(Resultslist$Tree1$aov.table$`Df`[2]),
+      
+  round(mean(Resultslist$Tree1$aov.table$F[1],
+       Resultslist$Tree2$aov.table$F[1],
+       Resultslist$Tree3$aov.table$F[1]), 
+       digits = 3),# average F
+ 
+  
+ round(mean(Resultslist$Tree1$aov.table$Rsq[1],
+       Resultslist$Tree2$aov.table$Rsq[1],
+       Resultslist$Tree3$aov.table$Rsq[1]),
+ digits = 2), # average Rsq
+  
+ round( mean(Resultslist$Tree1$aov.table$`Pr(>F)`[1],
+       Resultslist$Tree2$aov.table$`Pr(>F)`[1],
+       Resultslist$Tree3$aov.table$`Pr(>F)`[1]),
+  digits = 3) # average p 
+                )
+   
+}
+
+ANOVA_results <- data.frame( "Df"= integer(0), "F"= integer(0), "Rsq"= integer(0), "p"= integer(0))
+
+
+
+```
+
+# PCA & Summary Stats
+
+```{r}
+
+PCA <- gm.prcomp(gdf_automatic$coords)
+
+plot(PCA$x[,2] ~ PCA$x[,1], pch = 19)
+text( PCA$x[,2] ~ PCA$x[,1],  label = dimnames(gdf_automatic$coords)[[3]])
+
+#Checking that the deformations are OK even in the outlier P. ingrami  - it's definitely the correct shape.
+which(dimnames(gdf_automatic$coords)[[3]]=="Planigale_ingrami")
+plotRefToTarget(gdf_automatic$coords[,,43], mshape(gdf_automatic$coords),  method = "vector")
+
+#Brief check of main PC shape variation using lollipop graphs
+
+gridpars <- gridPar(pt.size=0.5, pt.bg="purple")
+plotRefToTarget(mshape(gdf_automatic$coords), PCA$shapes$shapes.comp1$max, method="vector",gridPars = gridpars)
+plotRefToTarget(mshape(gdf_automatic$coords), PCA$shapes$shapes.comp2$max, method="vector", gridPars = gridpars)
+
+plot(PCA$x[,2] ~ PCA$x[,1], pch = 19)
+text( PCA$x[,2] ~ PCA$x[,1],  labels=gdf_automatic$SpecData.Abbreviation)
+
+
+```
+
+
+#All subsequent analyses do the same thing over each tree 
+
+# phylogenetic signal
+```{r}
+
+physig_shape  <- list(Tree1=NULL, Tree2=NULL,Tree3=NULL)
+physig_size   <- list(Tree1=NULL, Tree2=NULL,Tree3=NULL)
+
+for (i in 1:length(physig_shape)){
+  physig_shape[[i]] <- physignal(gdf_automatic$coords, trees[[i]])
+  physig_size[[i]] <- physignal(log(gdf_automatic$Csize), trees[[i]])
+}
+
+#extract mean phylogenetic signal and p-values over all three trees
+mean(physig_shape$Tree1$phy.signal,physig_shape$Tree2$phy.signal, physig_shape$Tree3$phy.signal)
+mean(physig_shape$Tree1$pvalue,physig_shape$Tree2$pvalue,physig_shape$Tree3$pvalue)
+
+mean(physig_size$Tree1$phy.signal,physig_size$Tree2$phy.signal, physig_size$Tree3$phy.signal)
+mean(physig_size$Tree1$pvalue,physig_size$Tree2$pvalue,physig_size$Tree3$pvalue)
+
+```
+
+
+#Allometry
+
+```{r}
+
+#first, just for later visualizing non-evolutionary allometry
+
+# Is centroid size a good proxy of ecv?
+
+Csize_brainvol <- summary(lm(log(gdf_automatic$Csize)~log(SpecData$Brain_mm3)))
+
+Csize_brainvol_output <- c(Csize_brainvol$df[2], round(Csize_brainvol$fstatistic[1], 3), round(Csize_brainvol$r.squared, 3), round(Csize_brainvol$coefficients[2,4], 3))
+
+ANOVA_results <- rbind(ANOVA_results, Csize_brainvol_output); rownames(ANOVA_results)[length(rownames(ANOVA_results))] <- "Csize_Brainvol"
+
+#This is non-phylogenetic but required for figures
+Allom <- procD.lm(coords ~ Csize,iter=iter, data = gdf_automatic, logsz = TRUE)
+
+summary(Allom)
+
+## Evolutionary Allometry - Using centroid size
+  res.phy.allom.CS <- list(Tree1=NULL,Tree2=NULL,Tree3=NULL)
+  for(i in 1:3){
+     res.phy.allom.CS[[i]] <- procD.pgls(coords ~ log(Csize), trees[[i]],
+                                     iter=iter, data=gdf_automatic)}
+
+  #This line uses the mean tree results function entered at the top of this code to add a row of results, note the soft coding of the row re-name
+  ANOVA_results <- rbind(ANOVA_results, mean.tree.results(res.phy.allom.CS)); rownames(ANOVA_results)[length(rownames(ANOVA_results))] <- "Shape_vs_logCsize"
+
+
+  ### Evolutionary Allometry - Using Body Mass (g)
+  res.phy.allom.mass <- list(Tree1=NULL,Tree2=NULL,Tree3=NULL)
+  for(i in 1:3){
+    res.phy.allom.mass [[i]] <- procD.pgls(coords ~ log(SpecData.Bodymass_g),
+                                       trees[[i]], iter=iter, data=gdf_automatic)}
+
+
+
+  ANOVA_results <- rbind(ANOVA_results, mean.tree.results(res.phy.allom.mass)); rownames(ANOVA_results)[length(rownames(ANOVA_results))] <- "Shape_vs_logBodyMass"
+
+
+
+  ### Evolutionary Allometry -  relative brain size (EQ)
+
+    # using the residuals of a regression of log(brain size) on log(body size)
+
+  #make brain/body data frame and make sure it matches the tree
+  brain_body <- as.data.frame(cbind(gdf_automatic$SpecData.Bodymass_g,gdf_automatic$SpecData.Brain_mm3))
+  rownames(brain_body) <- gdf_automatic$SpecData.Species
+  colnames(brain_body) <- c("Body", "Brain")
+  trees$Tree1$tip.label == rownames(brain_body)
+
+  #the below gls coefficient is close to the slope found for other marsupials ( Weisbecker & Goswami 2011), we are thus using it to obtain residuals for our specific dataset (rather than a larger published one)
+  brain_body_gls <- (gls(log(Brain) ~ log(Body), correlation = corBrownian(1, phy=trees$Tree1), data=brain_body))
+
+  summary (brain_body_gls)
+
+  EQ <- residuals(brain_body_gls)
+  names(EQ) <- rownames(gdf_automatic$SpecData.Species)
+  res.phy.allom.EQ <- list(Tree1=NULL,Tree2=NULL,Tree3=NULL)
+
+    for(i in 1:3){
+      res.phy.allom.EQ[[i]] <- procD.pgls(coords ~ EQ, trees[[i]],iter=iter, data = gdf_automatic)
+    }
+
+ ANOVA_results <- rbind(ANOVA_results, mean.tree.results(res.phy.allom.EQ)); rownames(ANOVA_results)[length(rownames(ANOVA_results))] <- "Shape_vs_Residuals"
+```
+
+# Vombatiforms and the Bandicoots are clearly particularly non-allometric. Removing them from allometry analyses
+
+```{r}
+
+  omit <- c(which(gdf_automatic$SpecData.Cladename == "Vombatiform"),
+            which(gdf_automatic$SpecData.Cladename == "Peramelemorph")) # save which species to omit
+
+  #Make new data frame. NOTE that the analysis seems to only work if the logging is done at the gdf_automatic building step, rather than later. See similar issue below with the volume dataset.
+
+  gdf_automatic_VP<- geomorph.data.frame(coords=gdf_automatic$coords[,,-omit], Csize=log(gdf_automatic$Csize[-omit]),
+                               bmass = gdf_automatic$SpecData.Bodymass_g[-omit])
+
+  #It is not necessary to reduce the tree, the results remain identical
+  # trees_VP <- list(Tree1=NULL,Tree2=NULL,Tree3=NULL)
+  #
+  #   for(i in 1:3){
+  #     trees_VP[[i]] <- drop.tip(trees[[i]], omit)
+  #
+  #   }
+
+      ### using Csize
+     res_phy_allom_CS_VP <- list(Tree1=NULL,Tree2=NULL,Tree3=NULL)
+
+     #This is really frustrating - it seems that logging the data within the procD.pgls formula stops the function from working.
+
+
+     for(i in 1:3){
+       res_phy_allom_CS_VP[[i]] <- procD.pgls(coords ~ Csize,
+                                     trees[[i]],
+                                     iter=iter, data=gdf_automatic_VP)
+       }
+
+
+    ANOVA_results <- rbind(ANOVA_results, mean.tree.results(res_phy_allom_CS_VP)); rownames(ANOVA_results)[length(rownames(ANOVA_results))] <- "Shape_vs_logCsize_VP"
+
+    ### using Body Mass (g)
+    res.phy.allom.mass_VP <- list(Tree1=NULL,Tree2=NULL,Tree3=NULL)
+
+    for(i in 1:3){
+      res.phy.allom.mass_VP[[i]] <- procD.pgls(coords ~ log(bmass),
+                                trees[[i]],
+                                iter=iter, data=gdf_automatic_VP)
+      }
+
+     ANOVA_results <- rbind(ANOVA_results, mean.tree.results(res.phy.allom.mass_VP)); rownames(ANOVA_results)[length(rownames(ANOVA_results))] <- "Shape_vs_logBody_mass_VP"
+
+
+
+
+
+# Lastly, a pgls suggests that evolutionary allometry of PC1 is weak
+
+PCallom <- as.data.frame(cbind(PCA$x[,1], log(gdf_automatic$Csize)))
+colnames (PCallom) <- c("PC1", "Csize")
+
+ PC1_allom_results <- list(Tree1=NULL,Tree2=NULL,Tree3=NULL)
+
+  for(i in 1:3){
+     PC1_allom_results[[i]] <- procD.pgls(PC1 ~ Csize, trees[[i]],
+                                     iter=iter, data=PCallom)}
+
+ ANOVA_results <-  rbind(ANOVA_results, mean.tree.results(PC1_allom_results)); rownames(ANOVA_results)[length(rownames(ANOVA_results))] = "PC1_vs_logCsize"
+
+```
+
+#Analyses of locomotor mode. I find it useful to always randomly spot-check that all the data are in the right order (e.g. is Acrobates really listed as "gliding")
+
+```{r}
+
+dimnames(coords_Automatic)[[3]]==rownames(SpecData)
+
+#Note Csize is logged here at the start to avoid complications. Taking out unknown locomotion and Notoryctes which is the only fossorial species. Note that you need to take Notoryctes out first and then the unknown locomotor modes, the other way around causes an error message.
+
+gdf_loco <- geomorph.data.frame(coords=coords_Automatic [,,which(SpecData$Species!= "Notoryctes_typhlops" & !is.na(SpecData$Locomotion))], Csize = log(Csize_Automatic[which(SpecData$Species!= "Notoryctes_typhlops" & !is.na(SpecData$Locomotion))]), Locomotion = SpecData$Locomotion[which(SpecData$Species!= "Notoryctes_typhlops" & !is.na(SpecData$Locomotion))])
+
+
+
+
+#There are two species listed as "scansorial"; running these analyses with them classified as arboreal due to their additional climbing habit from a terrestrial ancestry
+gdf_loco$Locomotion[which (gdf_loco$Locomotion == "Scansorial") ] <- rep("Arboreal", length (which (gdf_loco$Locomotion == "Scansorial")) )
+
+# Not reported in ms but classifying the scansorial species as scansorial or as terrestrial  also doesn't do anything
+#gdf_loco$Locomotion[which (gdf_loco$Locomotion == "Scansorial") ] <- rep("Terrestrial", length (which (gdf_loco$Locomotion == "Scansorial")) )
+
+
+
+#First, making sure that locomotion analyses are not confounded by interactions on mean differences with centroid size. t First testing interactions
+
+Loco_list_Csize_inter <- list(Tree1=NULL,Tree2=NULL,Tree3=NULL)
+  for(i in 1:3){
+     Loco_list_Csize_inter[[i]] <- procD.pgls(coords ~ Csize*Locomotion, trees[[i]], iter=iter, data=gdf_loco)
+     }
+
+
+# we need to separately enter the values into the table because the first row is Csize statistics, 2nd one is locomotor statistics, 3rd is interaction term
+
+Loco_list_Csize_inter <- list(Tree1=NULL,Tree2=NULL,Tree3=NULL)
+  for(i in 1:3){
+     Loco_list_Csize_inter[[i]] <- procD.pgls(coords ~ Csize*Locomotion, trees[[i]], iter=iter, data=gdf_loco)
+     }
+
+
+ANOVA_results [length(rownames(ANOVA_results)),] <- c(
+
+  Loco_list_Csize_inter$Tree1$aov.table[4,1],
+
+  
+ round( mean(Loco_list_Csize_inter$Tree1$aov.table$F[3],
+       Loco_list_Csize_inter$Tree2$aov.table$F[3],
+       Loco_list_Csize_inter$Tree3$aov.table$F[3]),
+       digits=3), # average F
+
+
+ round  (mean(Loco_list_Csize_inter$Tree1$aov.table$Rsq[3],
+       Loco_list_Csize_inter$Tree2$aov.table$Rsq[3],
+       Loco_list_Csize_inter$Tree3$aov.table$Rsq[3]), digits = 2), # average Rsq
+
+  round( mean(Loco_list_Csize_inter$Tree1$aov.table$`Pr(>F)`[3],
+       Loco_list_Csize_inter$Tree2$aov.table$`Pr(>F)`[3],
+       Loco_list_Csize_inter$Tree3$aov.table$`Pr(>F)`[3]),
+       digits=3)# average p
+)
+
+rownames(ANOVA_results)[length(rownames(ANOVA_results))] <- "Shape_vs_Locomotor_mode_Csize_inter1"
+
+
+
+# Now testing for slope differences relative to csize
+
+Loco_list_Csize_adj <- list(Tree1=NULL,Tree2=NULL,Tree3=NULL)
+  for(i in 1:3){
+     Loco_list_Csize_adj[[i]] <- procD.pgls(coords ~ Csize+Locomotion, trees[[i]], iter=iter, data=gdf_loco)
+     }
+
+#This time, second row position
+ANOVA_results <- rbind(ANOVA_results, mean.tree.results(Loco_list_Csize_adj)); rownames(ANOVA_results)[length(rownames(ANOVA_results))] <- "Shape_vs_Locomotor_mode_Csize_adj"
+
+ANOVA_results [length(rownames(ANOVA_results)),] <- c(
+
+   Loco_list_Csize_adj$Tree1$aov.table[4,1],
+
+ round( mean(Loco_list_Csize_adj$Tree1$aov.table$F[2],
+       Loco_list_Csize_adj$Tree2$aov.table$F[2],
+       Loco_list_Csize_adj$Tree3$aov.table$F[2]),
+       digits=3), # average F
+
+
+ round  (mean(Loco_list_Csize_adj$Tree1$aov.table$Rsq[2],
+       Loco_list_Csize_adj$Tree2$aov.table$Rsq[2],
+       Loco_list_Csize_adj$Tree3$aov.table$Rsq[2]), digits = 2), # average Rsq
+
+  round( mean(Loco_list_Csize_adj$Tree1$aov.table$`Pr(>F)`[2],
+       Loco_list_Csize_adj$Tree2$aov.table$`Pr(>F)`[2],
+       Loco_list_Csize_adj$Tree3$aov.table$`Pr(>F)`[2]),
+       digits=3)# average p
+)
+
+rownames(ANOVA_results)[length(rownames(ANOVA_results))] <- "Shape_vs_Locomotor_mode_Csize_adj"
+
+
+#Now just locomotion since Csize does not seem to contribute to the model
+
+Loco_list <- list(Tree1=NULL,Tree2=NULL,Tree3=NULL)
+  for(i in 1:3){
+     Loco_list[[i]] <- procD.pgls(coords ~ Locomotion, trees[[i]], iter=iter, data=gdf_loco)
+     }
+
+ ANOVA_results <- rbind(ANOVA_results, mean.tree.results(Loco_list)); rownames(ANOVA_results)[length(rownames(ANOVA_results))] <- "Shape_vs_Locomotor_mode"
+
+```
+
+#But there could be an issue with the very unusual mode of hopping within macropods. So comparing the shape of hopping vs. non-hopping Diprotodontians only (because of the reasonably distinctive shape of diprotodontian brains)
+
+```{r}
+
+gdf_hopping <- gdf_automatic
+
+
+gdf_hopping <-
+  geomorph.data.frame(
+    coords = gdf_hopping$coords[, , which(SpecData$Clade_major == "Diprotodontia" &
+                                           !is.na(SpecData$Locomotion))],
+    Csize = log(gdf_hopping$Csize[which(SpecData$Clade_major == "Diprotodontia" &
+                                  !is.na(SpecData$Locomotion))]),
+    Locomotion = gdf_hopping$SpecData.Locomotion[which(SpecData$Clade_major == "Diprotodontia" &
+                                       !is.na(SpecData$Locomotion))]
+  )
+
+
+gdf_hopping$Locomotion[which (gdf_hopping$Locomotion != "Hopping") ] <- rep("Non-hopping", length (which (gdf_hopping$Locomotion != "Hopping")) )
+
+
+
+#No difference in shape between hoppers and non-hoppers
+
+Loco_list_hop <- list(Tree1=NULL,Tree2=NULL,Tree3=NULL)
+  for(i in 1:3){
+     Loco_list_hop[[i]] <- procD.pgls(coords ~ Locomotion, trees[[i]], iter=iter, data=gdf_hopping)
+     }
+
+
+ANOVA_results <- rbind(ANOVA_results, mean.tree.results(Loco_list_hop)); rownames(ANOVA_results)[length(rownames(ANOVA_results))] <- "Shape_vs_hopping"
+
+
+
+```
+
+#What about gliders?
+
+```{r}
+
+gdf_gliding <- gdf_automatic
+
+
+gdf_gliding <-
+  geomorph.data.frame(
+    coords = gdf_gliding$coords[, , which(SpecData$Clade_major == "Diprotodontia" &
+                                           !is.na(SpecData$Locomotion))],
+    Csize = log(gdf_gliding$Csize[which(SpecData$Clade_major == "Diprotodontia" &
+                                  !is.na(SpecData$Locomotion))]),
+    Locomotion = gdf_gliding$SpecData.Locomotion[which(SpecData$Clade_major == "Diprotodontia" &
+                                       !is.na(SpecData$Locomotion))]
+  )
+
+
+gdf_gliding$Locomotion[which (gdf_gliding$Locomotion != "Gliding") ] <- rep("Non-gliding", length (which (gdf_gliding$Locomotion != "Gliding")) )
+
+
+
+#No difference in shape between glidpers and non-glidpers
+
+Loco_list_glid <- list(Tree1=NULL,Tree2=NULL,Tree3=NULL)
+  for(i in 1:3){
+     Loco_list_glid[[i]] <- procD.pgls(coords ~ Locomotion, trees[[i]], iter=iter, data=gdf_gliding)
+     }
+
+
+ANOVA_results <- rbind(ANOVA_results, mean.tree.results(Loco_list_glid)); rownames(ANOVA_results)[length(rownames(ANOVA_results))] <- "Shape_vs_gliding"
+
+
+
+```
+# Analyses including brain volume
+
+```{r}
+# PCA of the brain volume data - volumes for the 4 partitions
+Volumes<- data.frame(OB=SpecData$OB, CBR=SpecData$Cerebrum,
+                     CBL=SpecData$Cerebellum, BS=SpecData$Medulla, clade_major = SpecData$Clade_major,
+                     body =   SpecData$Bodymass_g, Fossil=SpecData$Fossil, row.names=SpecData$Species )
+
+# Use the Geometric Mean approach to size correct only
+geomean <- apply(Volumes[,1:4], 1, prod)^(1/ncol(Volumes[,1:4]))#computing the geometric mean for obtaining size
+vol_lsr <- cbind (log(Volumes[,1:4]/ geomean), Volumes$clade_major, geomean, Volumes$body, Volumes$Fossil) #computing the log shape ratios, 'LSR'
+
+colnames(vol_lsr)[5] <- "clade_major"
+
+# Reorder data to match phylogenetic tree tip label order
+vol_lsr <- data.frame(vol_lsr[trees$Tree1$tip.label,]) # reorders to tip labels
+
+PCA.vol=princomp(vol_lsr[,1:4], scores=TRUE, cor=F)
+
+
+# major phylogenetic divisions
+
+delete_singles <- c (which(vol_lsr$clade_major == "Notoryctemorphia"), which(vol_lsr$clade_major == "Paucituberculata"), which(vol_lsr$clade_major == "Stem"), which(vol_lsr$clade_major == "Dromiciops"), which(vol_lsr$clade_major == "Yalkaparidontia"))
+
+
+#Doing it all in one go does not work. You have to pull out the terms first
+#major_clade_vol <- procD.lm(vol_lsr[-delete_singles,1:4] ~ (droplevels(vol_lsr$clade_major[-delete_singles])))
+
+voldelsing<-vol_lsr[-delete_singles,1:4]
+
+cladevol <- (droplevels(as.factor(vol_lsr$clade_major[-delete_singles])))
+
+major_clade_vol <- procD.lm(voldelsing ~ cladevol)
+
+anova(major_clade_vol)
+
+
+
+#### phylogenetic signal using the same function as for shape to keep things even
+
+#the vol.lsr dataset needs special treatment before physignal will take it
+vol.lsr1 <- as.matrix(vol_lsr[,1:4])
+
+physig_vol_lsr <- matrix(NA, nrow = 3, ncol = 2)
+
+for (i in (1:length(trees))) {
+  tmp <- physignal(vol.lsr1, phy=trees[[i]])
+  physig_vol_lsr[i, 1] <- tmp$phy.signal
+  physig_vol_lsr[i, 2] <- tmp$pvalue
+}
+
+mean(physig_vol_lsr[, 1])
+mean(physig_vol_lsr[, 2])
+
+
+
+# Evolutionary allometry
+
+# Brain partition volumes vs geomean
+geomean_vol <- list(Tree1=NULL,Tree2=NULL,Tree3=NULL)
+
+for(i in 1:3){
+  geomean_vol [[i]] <- procD.pgls(vol_lsr[,1:4]~log(vol_lsr$geomean),
+                                   trees[[i]])
+                                   }
+
+ANOVA_results <- rbind(ANOVA_results, mean.tree.results(geomean_vol)); rownames(ANOVA_results)[length(rownames(ANOVA_results))] <- "Volumes_vs_log_Geomean"
+
+
+
+# Brain partition volumes vs body mass
+bodymass_vol <- list(Tree1=NULL,Tree2=NULL,Tree3=NULL)
+
+# I don't understand why I need to pull this out, but the code does not work otherwise
+
+Volumes.body <- vol_lsr$Volumes.body
+
+for(i in 1:3){
+  bodymass_vol [[i]] <- procD.pgls(vol_lsr[,1:4]~log(Volumes.body),
+                                   trees[[i]]
+                                   )}
+
+ANOVA_results <- rbind(ANOVA_results, mean.tree.results(bodymass_vol)); rownames(ANOVA_results)[length(rownames(ANOVA_results))] <- "Volumes_vs_log_Bodymass"
+
+
+# how does the distribution of species in this PCA compare to the PCA of shape?
+Vol.dist <- dist(PCA.vol$scores) ; Shp.dist <- dist(PCA$x)
+mantel(Vol.dist,Shp.dist,method="pearson", permutations=9999)
+
+
+
+
+```
+
+#Analyses of PC2 shape variation and cerebral hemisphere volume because there seem to be some correspondence between PC2 and cerebral hemisphere partition volume
+
+```{r}
+
+PC2Fossil <- as.data.frame(cbind(PCA$x[,2], vol_lsr$CBR, as.factor(SpecData$Fossil)))
+colnames (PC2Fossil) <- c("PC2", "CBR", "Fossil")
+
+#if PC2 and relative  cerebral volume match, how much overall shape does relative cerebral volume explain?
+
+#Check that species order matches up
+
+rownames(vol_lsr) == dimnames(gdf_automatic$coords)[[3]]
+
+#procD.pgls seems to not like the "address" for CBR so having to pull it out
+CBR <- vol_lsr$CBR
+
+Shape_vs_Cerebr <- list(Tree1=NULL,Tree2=NULL,Tree3=NULL)
+
+for(i in 1:3){
+  Shape_vs_Cerebr [[i]] <- procD.pgls(gdf_automatic$coords ~ CBR,
+                                   trees[[i]]
+                                   )}
+
+
+ANOVA_results <- rbind(ANOVA_results, mean.tree.results(Shape_vs_Cerebr)); rownames(ANOVA_results)[length(rownames(ANOVA_results))] <- "Shape_vs_Cerebral_volume"
+
+
+
+
+#Do Cerebral hemisphere volumes correspond to PC2?
+
+PC2_CBR_results <- list(Tree1=NULL,Tree2=NULL,Tree3=NULL)
+
+ for(i in 1:3){
+     PC2_CBR_results[[i]] <- procD.pgls(PC2 ~ CBR, trees[[i]],
+                                     iter=iter, data=PC2Fossil)}
+
+
+ ANOVA_results <- rbind(ANOVA_results, mean.tree.results(PC2_CBR_results)); rownames(ANOVA_results)[length(rownames(ANOVA_results))] <- "PC2_vs_CBR_LSR"
+
+
+#To further investigate the visual impression that fossils have lower PC2, get PC imporance scores
+
+Summary_PCA <- summary(PCA)
+
+
+#Who has the lowest PC2 scores - fossils are over-represented
+PC2sorted <- sort(PCA$x[,2] , decreasing=FALSE)
+
+
+
+#Do fossils have lower PC2 scores and/or cerebral volume scores?
+
+rownames(PCA$x)==rownames (SpecData);rownames (SpecData) ==row.names(vol_lsr)
+
+ PC2_fossil_results <- list(Tree1=NULL,Tree2=NULL,Tree3=NULL)
+ CBR_vol_results <- list(Tree1=NULL,Tree2=NULL,Tree3=NULL)
+
+  for(i in 1:3){
+     PC2_fossil_results[[i]] <- procD.pgls(PC2 ~ Fossil, trees[[i]],
+                                     iter=iter, data=PC2Fossil)}
+
+
+ ANOVA_results <- rbind(ANOVA_results, mean.tree.results(PC2_fossil_results)); rownames(ANOVA_results)[length(rownames(ANOVA_results))] <- "PC2_in_extinct_sp."
+
+for(i in 1:3){
+     CBR_vol_results[[i]] <- procD.pgls(CBR ~ Fossil, trees[[i]],
+                                     iter=iter, data=PC2Fossil)}
+
+ANOVA_results <- rbind(ANOVA_results, mean.tree.results(CBR_vol_results)); rownames(ANOVA_results)[length(rownames(ANOVA_results))] <- "Cerebral_vol_in_extinct_sp."
+
+# Similar questions surrounding Diprotodontia - do they have systematically higher PC2 or do they have significantly different shapes relative to the other species?
+
+Dip_nonDip <- SpecData$Clade_major
+
+# Need to manually add a level
+levels(Dip_nonDip) <- c(levels(Dip_nonDip),"NonDip")
+NonDip <- c(which (SpecData$Clade_major != "Diprotodontia"))
+Dip_nonDip[NonDip] <- as.factor("NonDip")
+Dip_nonDip <- droplevels(as.factor(Dip_nonDip))
+
+#Add Diprotodontia to dataset, check visually afterwards that the new factor matches the species
+PC2Dip <- as.data.frame(cbind(PCA$x[,2], as.factor(Dip_nonDip)), )
+colnames (PC2Dip) <- c("PC2", "Dip")
+
+ PC2_Dip_results <- list(Tree1=NULL,Tree2=NULL,Tree3=NULL)
+
+  for(i in 1:3){
+     PC2_Dip_results[[i]] <- procD.pgls(PC2 ~ Dip, trees[[i]],
+                                     iter=iter, data=PC2Dip)}
+
+ ANOVA_results <- rbind(ANOVA_results, mean.tree.results(PC2_Dip_results)); rownames(ANOVA_results)[length(rownames(ANOVA_results))] <- "PC2_in_Diprotodontia"
+
+#How about Cerebral volume in Diprotodontians?
+
+CBR_Dip <- as.data.frame(cbind(vol_lsr$CBR, as.factor(Dip_nonDip), SpecData$Bodymass_g))
+
+CBR_vs_Dip <- list(Tree1=NULL,Tree2=NULL,Tree3=NULL)
+
+
+for(i in 1:3){
+  CBR_vs_Dip [[i]] <- procD.pgls(CBR_Dip[,1]~as.factor(CBR_Dip[,2]),
+                                   trees[[i]]
+                                   )}
+
+ANOVA_results <- rbind(ANOVA_results, mean.tree.results(CBR_vs_Dip)); rownames(ANOVA_results)[length(rownames(ANOVA_results))] <- "Cerebral_volume_in_Diprotodontians"
+
+
+
+
+
+```
+
+#Testing whether the cerebral volume partition or PC2 correlates with cortex volumes, using grey matter volume data from Jyothilakshmi 2020.
+
+```{r}
+
+#One can never check often enough
+rownames(PCA$x)==rownames(vol_lsr); rownames(vol_lsr)==rownames(SpecData)
+
+#for the cortex grey matter values from Jyothilakhsmi et al. 2020
+
+Cortex_data <- as.data.frame(cbind(PCA$x[,2], vol_lsr$CBR, SpecData$Grey_Matter_LSR ))
+colnames (Cortex_data) <- c("PC2", "CBR", "Cx_vol")
+rownames(Cortex_data) <- rownames(SpecData)
+
+#reduce down to data available
+Cortex_data <- Cortex_data [which(!is.na(Cortex_data$Cx_vol)),]
+
+#Note that P. norfolcensis and Vombatus ursinus are substantial outliers in this dataset. They have far larger/smaller cortex grey matter LSR volumes than any other marsupial.
+plot(Cortex_data$CBR~Cortex_data$Cx_vol, data = Cortex_data)
+text(Cortex_data$CBR~Cortex_data$Cx_vol, label = rownames(Cortex_data))
+
+
+#Reduce tree to species in cortical dataset. For some reason, unlike all other analyses, this pgls throws an error if the tree is not pruned; however, I double checked with the subset of allometry without wombats and peramelemorphs and there it is fine.
+omit <- which (!(rownames(SpecData) %in% rownames(Cortex_data)))
+
+
+trees_Cort<- list(Tree1=NULL,Tree2=NULL,Tree3=NULL)
+
+for(i in 1:3){
+       trees_Cort[[i]] <- drop.tip(trees[[i]], omit)
+
+     }
+
+#Take out all species not occurring in the grey matter LSR dataset
+
+GreyMatter_gdf <- geomorph.data.frame(coords=coords_Automatic[,,-(which (!(dimnames(coords_Automatic)[[3]] %in% rownames(Cortex_data))))], Grey_matter_lsr = Cortex_data$Cx_vol)
+
+
+Shape_vs_GreyMatter_LSR <- list(Tree1=NULL,Tree2=NULL,Tree3=NULL)
+
+
+for(i in 1:3){
+  Shape_vs_GreyMatter_LSR [[i]] <- procD.pgls(GreyMatter_gdf$coords ~ GreyMatter_gdf$Grey_matter,
+                                   trees_Cort[[i]]
+                                   )}
+
+
+ANOVA_results <- rbind(ANOVA_results, mean.tree.results(Shape_vs_GreyMatter_LSR)); rownames(ANOVA_results)[length(rownames(ANOVA_results))] <- "Shape_vs_Grey_matter_lsr"
+
+#Cerebral hemisphere volume relative to grey matter LSR
+
+Cortex_results_CBR = list(Tree1=NULL,Tree2=NULL,Tree3=NULL)
+
+for(i in 1:3){
+     Cortex_results_CBR[[i]] <- procD.pgls(Cortex_data[,2] ~ Cortex_data[,3], trees_Cort[[i]],
+                                     iter=iter)
+                                     }
+
+ ANOVA_results <- rbind(ANOVA_results, mean.tree.results(Cortex_results_CBR)); rownames(ANOVA_results)[length(rownames(ANOVA_results))] <- "Cerebr_vol_vs_Grey_matter_lsr"
+
+#Cerebral hemisphere volume relative to grey matter LSR
+
+ Cortex_results_PC2 = list(Tree1=NULL,Tree2=NULL,Tree3=NULL)
+
+for(i in 1:3){
+     Cortex_results_PC2[[i]] <- procD.pgls(Cortex_data[,1] ~ Cortex_data[,3], trees_Cort[[i]],
+                                     iter=iter)
+                                     }
+
+ ANOVA_results_PC2 <- rbind(ANOVA_results, mean.tree.results(Cortex_results_PC2)); rownames(ANOVA_results)[length(rownames(ANOVA_results))] <- "PC2_vs_Grey_matter_lsr"
+
+
+
+
+
+```
+
+#Testing whether the cerebral volume partition or PC2 correlate with Neocortex volume, using data from Pirlot 1981.
+
+```{r}
+
+#One can never check often enough
+rownames(PCA$x)==rownames(vol_lsr); rownames(vol_lsr)==rownames(SpecData)
+
+#for the cortex grey matter values from Jyothilakhsmi et al. 2020
+
+Neocortex_data <- as.data.frame(cbind(PCA$x[,2], vol_lsr$CBR, SpecData$Neocortex_LSR ))
+colnames (Neocortex_data) <- c("PC2", "CBR", "Nc")
+rownames(Neocortex_data) <- rownames(SpecData)
+
+#reduce down to data available
+Neocortex_data <- Neocortex_data [which(!is.na(Neocortex_data$Nc)),]
+
+#Add a factor of dips and non-dips
+DipFactor <- c(1,1,1,1,1,1,1,1,2,2,2,2,2,2,2,2,2)
+Neocortex_data <-  cbind(Neocortex_data, DipFactor)
+
+#A quick peek
+plot(Neocortex_data$CBR~Neocortex_data$Nc, data = Neocortex_data)
+text(Neocortex_data$CBR~Neocortex_data$Nc, label = rownames(Neocortex_data))
+
+
+#Reduce tree to species in cortical dataset. For some reason, unlike all other analyses, this pgls throws an error if the tree is not pruned; however, I double checked with the subset of allometry without wombats and peramelemorphs and there it is fine.
+omit <- which (!(rownames(SpecData) %in% rownames(Neocortex_data)))
+
+
+trees_NeoCort<- list(Tree1=NULL,Tree2=NULL,Tree3=NULL)
+
+for(i in 1:3){
+       trees_NeoCort[[i]] <- drop.tip(trees[[i]], omit)
+
+     }
+
+#Take out all species not occurring in the Neocortex LSR dataset
+
+Neocort_gdf <- geomorph.data.frame(coords=coords_Automatic[,,-(which (!(dimnames(coords_Automatic)[[3]] %in% rownames(Neocortex_data))))], Neocort_lsr = Neocortex_data$Nc)
+
+Shape_vs_Neocort_LSR <- list(Tree1=NULL,Tree2=NULL,Tree3=NULL)
+
+
+for(i in 1:3){
+  Shape_vs_Neocort_LSR [[i]] <- procD.pgls(Neocort_gdf$coords ~ Neocort_gdf$Neocort_lsr,
+                                   trees_NeoCort[[i]]
+                                   )}
+
+
+ANOVA_results <- rbind(ANOVA_results, mean.tree.results(Shape_vs_Neocort_LSR)); rownames(ANOVA_results)[length(rownames(ANOVA_results))] <- "Shape_vs_Neocortex_lsr"
+
+
+Neocortex_results_CBR = list(Tree1=NULL,Tree2=NULL,Tree3=NULL)
+
+for(i in 1:3){
+     Neocortex_results_CBR[[i]] <- procD.pgls(Neocortex_data[,2] ~ Neocortex_data[,3], trees_NeoCort[[i]],
+                                     iter=iter)
+                                     }
+
+ ANOVA_results <- rbind(ANOVA_results, mean.tree.results(Neocortex_results_CBR)); rownames(ANOVA_results)[length(rownames(ANOVA_results))] <- "Cerebr_vol_vs_Neocortex_lsr"
+
+ Neocortex_results_PC2 = list(Tree1=NULL,Tree2=NULL,Tree3=NULL)
+
+for(i in 1:3){
+     Neocortex_results_PC2[[i]] <- procD.pgls(Neocortex_data[,1] ~ Neocortex_data[,3], trees_NeoCort[[i]],
+                                     iter=iter)
+                                     }
+
+ ANOVA_results <- rbind(ANOVA_results, mean.tree.results(Neocortex_results_PC2)); rownames(ANOVA_results)[length(rownames(ANOVA_results))] <- "PC2_vs_Neocortex_lsr"
+
+
+
+```
+
+
+
+
+#Summarizing all analyses into one table -done throughout as well but this here works well to get a table at the end of it all.
+
+```{r}
+
+ANOVA_results <- data.frame( "Df"= integer(0), "F"= integer(0), "Rsq"= integer(0), "p"= integer(0))
+
+ANOVA_results <- rbind(ANOVA_results, Csize_brainvol_output); rownames(ANOVA_results)[length(rownames(ANOVA_results))] <- "Csize_Brainvol"
+
+ANOVA_results <- rbind(ANOVA_results, mean.tree.results(res.phy.allom.CS)); rownames(ANOVA_results)[length(rownames(ANOVA_results))] <- "Shape vs logCsize"
+
+ANOVA_results <- rbind(ANOVA_results, mean.tree.results(res.phy.allom.mass)); rownames(ANOVA_results)[length(rownames(ANOVA_results))] <- "Shape_vs_logBodyMass"
+
+ANOVA_results <- rbind(ANOVA_results, mean.tree.results(res.phy.allom.EQ)); rownames(ANOVA_results)[length(rownames(ANOVA_results))] <- "Shape vs EQ"
+
+ANOVA_results <- rbind(ANOVA_results, mean.tree.results(res_phy_allom_CS_VP)); rownames(ANOVA_results)[length(rownames(ANOVA_results))] <- "Shape vs logCsize VP"
+
+ANOVA_results <- rbind(ANOVA_results, mean.tree.results(res.phy.allom.mass_VP));
+rownames(ANOVA_results)[length(rownames(ANOVA_results))] <- "Shape vs log Body mass without Vombatiforms/Peramelemorphs"
+
+ANOVA_results <-  rbind(ANOVA_results, mean.tree.results(PC1_allom_results)); rownames(ANOVA_results)[length(rownames(ANOVA_results))] <- "PC1_vs_logCsize"
+
+
+ANOVA_results [length(rownames(ANOVA_results)),] <- c(
+
+  Loco_list_Csize_inter$Tree1$aov.table[4,1],
+
+  
+ round( mean(Loco_list_Csize_inter$Tree1$aov.table$F[3],
+       Loco_list_Csize_inter$Tree2$aov.table$F[3],
+       Loco_list_Csize_inter$Tree3$aov.table$F[3]),
+       digits=3), # average F
+
+
+ round  (mean(Loco_list_Csize_inter$Tree1$aov.table$Rsq[3],
+       Loco_list_Csize_inter$Tree2$aov.table$Rsq[3],
+       Loco_list_Csize_inter$Tree3$aov.table$Rsq[3]), digits = 2), # average Rsq
+
+  round( mean(Loco_list_Csize_inter$Tree1$aov.table$`Pr(>F)`[3],
+       Loco_list_Csize_inter$Tree2$aov.table$`Pr(>F)`[3],
+       Loco_list_Csize_inter$Tree3$aov.table$`Pr(>F)`[3]),
+       digits=3)# average p
+)
+
+rownames(ANOVA_results)[length(rownames(ANOVA_results))] <- "Shape_vs_Locomotor_mode_Csize_inter"
+
+
+
+ANOVA_results <- rbind(ANOVA_results, mean.tree.results(Loco_list_Csize_adj)); rownames(ANOVA_results)[length(rownames(ANOVA_results))] <- "Shape_vs_Locomotor_mode_Csize_adj"
+
+ANOVA_results [length(rownames(ANOVA_results)),] <- c(
+
+   Loco_list_Csize_adj$Tree1$aov.table[4,1],
+
+ round( mean(Loco_list_Csize_adj$Tree1$aov.table$F[2],
+       Loco_list_Csize_adj$Tree2$aov.table$F[2],
+       Loco_list_Csize_adj$Tree3$aov.table$F[2]),
+       digits=3), # average F
+
+
+ round  (mean(Loco_list_Csize_adj$Tree1$aov.table$Rsq[2],
+       Loco_list_Csize_adj$Tree2$aov.table$Rsq[2],
+       Loco_list_Csize_adj$Tree3$aov.table$Rsq[2]), digits = 2), # average Rsq
+
+  round( mean(Loco_list_Csize_adj$Tree1$aov.table$`Pr(>F)`[2],
+       Loco_list_Csize_adj$Tree2$aov.table$`Pr(>F)`[2],
+       Loco_list_Csize_adj$Tree3$aov.table$`Pr(>F)`[2]),
+       digits=3)# average p
+)
+
+rownames(ANOVA_results)[length(rownames(ANOVA_results))] <- "Shape_vs_Locomotor_mode_Csize_adj"
+
+
+
+ANOVA_results <- rbind(ANOVA_results, mean.tree.results(Loco_list)); rownames(ANOVA_results)[length(rownames(ANOVA_results))] <- "Shape vs Locomotor mode"
+
+ANOVA_results <- rbind(ANOVA_results, mean.tree.results(Loco_list_hop)); rownames(ANOVA_results)[length(rownames(ANOVA_results))] <- "Shape vs hopping"
+
+
+ANOVA_results <- rbind(ANOVA_results, mean.tree.results(Loco_list_glid)); rownames(ANOVA_results)[length(rownames(ANOVA_results))] <- "Shape vs gliding"
+
+ANOVA_results <- rbind(ANOVA_results, mean.tree.results(geomean_vol)); rownames(ANOVA_results)[length(rownames(ANOVA_results))] <- "Volumes vs log Geomean"
+
+ANOVA_results <- rbind(ANOVA_results, mean.tree.results(bodymass_vol)); rownames(ANOVA_results)[length(rownames(ANOVA_results))] <- "Volumes_vs_log_Bodymass"
+
+ANOVA_results <- rbind(ANOVA_results, mean.tree.results(Shape_vs_Cerebr)); rownames(ANOVA_results)[length(rownames(ANOVA_results))] <- "Shape_vs_Cerebral volume"
+
+ANOVA_results <- rbind(ANOVA_results, mean.tree.results(PC2_CBR_results)); rownames(ANOVA_results)[length(rownames(ANOVA_results))] <- "PC2_vs_CBR_LSR"
+
+ANOVA_results <- rbind(ANOVA_results, mean.tree.results(PC2_fossil_results)); rownames(ANOVA_results)[length(rownames(ANOVA_results))] <- "PC2 in extinct sp."
+
+ANOVA_results <- rbind(ANOVA_results, mean.tree.results(CBR_vol_results)); rownames(ANOVA_results)[length(rownames(ANOVA_results))] <- "Cerebral_vol_in_extinct_sp."
+
+ANOVA_results <- rbind(ANOVA_results, mean.tree.results(PC2_Dip_results)); rownames(ANOVA_results)[length(rownames(ANOVA_results))] <- "PC2 in Diprotodontia"
+
+ANOVA_results <- rbind(ANOVA_results, mean.tree.results(CBR_vs_Dip)); rownames(ANOVA_results)[length(rownames(ANOVA_results))] <- "Cerebral volume in Diprotodontia"
+
+ ANOVA_results <- rbind(ANOVA_results, mean.tree.results(Shape_vs_GreyMatter_LSR)); rownames(ANOVA_results)[length(rownames(ANOVA_results))] <- "Shape_vs_Grey_matter_lsr"
+
+ ANOVA_results <- rbind(ANOVA_results, mean.tree.results(Cortex_results_CBR)); rownames(ANOVA_results)[length(rownames(ANOVA_results))] <- "Cerebr_vol_vs_Grey_matter_lsr"
+
+ ANOVA_results <- rbind(ANOVA_results, mean.tree.results(Cortex_results_PC2)); rownames(ANOVA_results)[length(rownames(ANOVA_results))] <- "PC2_vs_Grey_matter_lsr"
+
+ ANOVA_results <- rbind(ANOVA_results, mean.tree.results(Shape_vs_Neocort_LSR)); rownames(ANOVA_results)[length(rownames(ANOVA_results))] <- "Shape_vs_Neocortex_lsr"
+
+ ANOVA_results <- rbind(ANOVA_results, mean.tree.results(Neocortex_results_CBR)); rownames(ANOVA_results)[length(rownames(ANOVA_results))] <- "Cerebr_vol_vs_Neocortex_lsr"
+
+ANOVA_results <- rbind(ANOVA_results, mean.tree.results(Neocortex_results_PC2)); rownames(ANOVA_results)[length(rownames(ANOVA_results))] <- "PC2_vs_Neocortex_lsr"
+
+
+write.csv(ANOVA_results, file = "../Figures/ANOVA_table.csv")
+
+```
+
+
+
+
+
+
+                  ####~~~~~~~ THE END ~~~~~~~####
+
+
+
+#For figures:
+
+```{r}
+save.image("../Data/Processed/WeisbETal_Data.RData")
+
+
+```

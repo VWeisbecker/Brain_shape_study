@@ -1,0 +1,205 @@
+---
+title: "01_3_Marsbrain_Remove_round_Outliers"
+author: "Vera Weisbecker and Emma Sherratt"
+date: "26 February 2020"
+output: html_document
+---
+
+#load workspace, start reducing
+```{r}
+
+
+library(png) #version 0.1-7
+library(rgl)#version 0.100.54
+library(geomorph) #version 3.3.1
+library(abind) #version 1.4-5
+library(plyr) #version 1.8.6
+library(vegan) #version 2.5-6
+library(ape) #version 5.4-1
+library(geiger) #version 2.0.7
+library(nlme) #version 3.1-149
+library(grid)#version 4.0.2
+
+load(file = "../Data/Processed/brain_data_processed.rda")
+
+#Remove species from data file
+
+ind.SpecData_reduced <- ind.SpecData[-(c(which(ind.SpecData$Species=="Notoryctes_typhlops"),
+                                           which(ind.SpecData$Species=="Caenolestes_fuliginosus"))),]
+
+
+
+```
+
+#remove Notoryctes and Caenolestes
+
+```{r}
+
+Raw3D_reduced <- Automatic_Raw [,,-(c(which(dimnames(Automatic_Raw)[[3]]=="Ntyph_AMNH202107"),
+                               which(dimnames(Automatic_Raw)[[3]]=="Cfulig_KU124015")))]
+
+length(dimnames(Raw3D_reduced)[[3]])
+
+```
+
+#GPA with missing animals
+
+```{r}
+
+### define sliding semilandmarks on curves (curveslide), and patches (surfslide) 
+curveslide=as.matrix(read.csv("../Data/Raw/curveslide_automatic.csv", header=T))
+surfslide=as.matrix(read.csv("../Data/Raw/surfslide_automatic.csv",header=T))
+
+### GPA of both sets of replicates, with sliding
+GPA_reduced  <- gpagen(Raw3D_reduced, surfaces = surfslide,curves = curveslide)
+
+#remove objects no longer needed
+remove(curveslide, surfslide)
+
+
+```
+
+#Average reduced replicates
+
+```{r}
+
+# shape data
+ind.coords_reduced <- aggregate(two.d.array(GPA_reduced$coords) ~ dimnames(GPA_reduced$coords)[[3]], FUN=mean)[,-1]
+rownames(ind.coords_reduced) <- unique(dimnames(GPA_reduced$coords)[[3]])
+ind.coords_reduced <- arrayspecs(ind.coords_reduced, p=ncol(ind.coords_reduced)/3, k=3)
+# centroid size data
+ind.Csize <- as.vector(aggregate(GPA_reduced$Csize ~ dimnames(GPA_reduced$coords)[[3]], FUN=mean)[,-1])
+names(ind.Csize) <- unique(dimnames(GPA_reduced$coords)[[3]])
+# ind.Csize - These are the individuals Csize data for plotting specimen allometry graphs
+
+### Bilateral symmetry GPA_reduced on averaged specimens
+landpairs <- as.matrix(read.csv("../Data/Raw/Landpairs_automatic.csv", header = F))
+GPA_reducedSymm <- bilat.symmetry(ind.coords_reduced, ind=dimnames(ind.coords_reduced)[[3]], side=NULL, replicate=NULL, object.sym=TRUE, land.pairs =landpairs)
+dimnames(GPA_reducedSymm$symm.shape)[[3]] <- dimnames(ind.coords_reduced)[[3]] # rename
+
+# ind.coords_reduced - These are the individuals shape data for plotting specimen graphs
+ind.coords_reduced <- GPA_reducedSymm$symm.shape # replace with new symm.shape
+
+ind.PCA_reduced <- gm.prcomp(ind.coords_reduced)
+
+
+
+```
+# Averaging by species
+
+```{r}
+
+ #Make a vector of species labels from the specimen names
+
+species_reduced <- matrix(unlist(strsplit(dimnames(ind.coords_reduced)[[3]], "_")), ncol=2, byrow = T)[,1]
+
+# Reorder the classifier file to match this up with shape data
+ind.SpecData_reduced <- ind.SpecData_reduced[match(dimnames(ind.coords_reduced)[[3]],rownames(ind.SpecData_reduced)),]
+
+#check that re-ordering worked
+match(dimnames(ind.coords_reduced)[[3]],rownames(ind.SpecData_reduced))==c(1:82)
+
+# Add a column of species labels from the specimen names
+ind.SpecData_reduced$Abbreviation <- species_reduced
+
+# Average classifiers and volumes data by species
+SpecData_reduced <- ddply(ind.SpecData_reduced, .(Species), summarize, Clade_major=unique(Clade_major),Cladename=unique(Cladename),Fossil=unique(Fossil),Macropod=unique(Macropod),Bodymass_g=mean(Bodymass_g),Brain_mm3=mean(Brain_mm3), OB=mean(OB), Cerebrum=mean(Cerebrum), Cerebellum=mean(Cerebellum), Medulla=mean(Medulla), Abbreviation=unique(Abbreviation))
+SpecData_reduced <- SpecData_reduced[order(SpecData_reduced$Abbreviation),]# Alphabetical by Gsp abbreviation
+
+# Averaging shape data by species
+coords_reduced <- (aggregate(two.d.array(GPA_reducedSymm$symm.shape) ~ ind.SpecData_reduced$Abbreviation, FUN=mean))[,-1]
+rownames(coords_reduced) <- unique(ind.SpecData_reduced$Abbreviation)
+coords_reduced <- arrayspecs(coords_reduced,p=dim(GPA_reducedSymm$symm.shape)[1],k=3) # 3D array
+# coords_reduced - These are the species means shape data for plotting species graphs
+
+
+
+```
+
+#Check PC1/2 plots and displacement for reduced and full PCAs
+
+```{r}
+
+PCA_reduced <- gm.prcomp(coords_reduced)
+summary_PCA_reduced <- summary(PCA_reduced)
+PCA_Automatic <- gm.prcomp(gdf_automatic$coords)
+summary_PCA_Automatic <- summary(PCA_Automatic)
+
+#The variation explained is very similar and taking out the two species does not reduce the $ of variation on PC1 much
+par(mfrow=c(2,1))
+
+plot(PCA_reduced$x[,2] ~ PCA_reduced$x[,1], pch = 19)
+text( PCA_reduced$x[,2] ~ PCA_reduced$x[,1],  label = dimnames(coords_reduced)[[3]])
+
+plot(PCA_Automatic$x[,2] ~ PCA_Automatic$x[,1], pch = 19)
+text( PCA_Automatic$x[,2] ~ PCA_Automatic$x[,1],  label = dimnames(gdf_automatic$coords)[[3]])
+
+
+summary_PCA_reduced$PC.summary[2,1:4]
+summary_PCA_Automatic$PC.summary[2,1:4]
+
+
+#PC1 variation near-identical to full dataset. The below graphing procedure is explained in more detail in the Figure file.
+
+
+usrMat.dorsal <- as.matrix(read.csv("../Figures/usrMat.dorsal.csv", header = T))
+Pars <-gridPar (pt.size = 0.8)
+
+open3d(FOV=0, userMatrix = usrMat.dorsal,windowRect=c(0,0,1000,1000), zoom=0.85)
+
+plotRefToTarget(mshape(coords_reduced),PCA_reduced$shapes$shapes.comp1$min , method="vector", gridPars = Pars  )
+rgl.snapshot("../Figures/Collections_of_sub_images/Reduced_graph/Reduced_plotref.png" )
+Img_red <- readPNG("../Figures/Collections_of_sub_images/Reduced_graph/Reduced_plotref.png") 
+
+open3d(FOV=0, userMatrix = usrMat.dorsal,windowRect=c(0,0,1000,1000), zoom=0.85)
+
+plotRefToTarget(mshape(gdf_automatic$coords),PCA_Automatic$shapes$shapes.comp1$max, method="vector", gridPars = Pars  )
+rgl.snapshot("../Figures/Collections_of_sub_images/Reduced_graph/Full_plotref.png" )
+Img_full <- readPNG("../Figures/Collections_of_sub_images/Reduced_graph/Full_plotref.png") 
+
+
+
+
+#View both at the same time
+#mfrow3d(1,2, sharedMouse = TRUE)
+#plotRefToTarget(mshape(coords_reduced),PCA_reduced$pc.shapes$PC1max, method="vector", gridPars = Pars  )
+#plotRefToTarget(mshape(gdf_automatic$coords_Automatic),PCA_Automatic$pc.shapes$PC1min, method="vector", gridPars = Pars )
+
+
+
+
+ 
+#Now make plot for comparison - I JUST COULD NOT GET THIS RIGHT FOR PDF...so it will have to stay a screenshot job!
+
+#pdf("../Figures/Supp_withoutNotoryctes_Caenolestes.pdf")
+
+par(mfrow = c(2,1))
+
+
+plot (PCA_reduced$x[,2]~PCA_reduced$x[,1], pch=19, 
+      xlab = paste("PC1, no Caenolestes and Notoryctes, ", round( summary_PCA_reduced$PC.summary[2,1]*100), "%", sep = ""),
+      ylab = paste ("PC2, ",round( summary_PCA_reduced$PC.summary[2,2]*100), "%", sep = "")  ,
+      xlim=c(-0.23, 0.1), asp=TRUE,bty="n ")
+
+text (PCA_reduced$x[,2]~PCA_reduced$x[,1], labels=dimnames(coords_reduced)[[3]], adj = 1.1 )
+#rasterImage(Img_red,-0.3,(0.05+dim(Img_red)[2]/100000),dim(Img_red)[2]/100000,dim(Img_red)[1]/100000)
+grid.raster(Img_red, x = unit(0.2, "npc"), y = unit(0.8, "npc"), height = 0.3  )
+
+#The PC2 axes are switched sign so one of them needs to have a sign change for all values. For some weird reason, I can't reverse the sign inside of plot()
+neg_PC2 <-(-PCA_Automatic$x[,2])
+neg_PC1 <-(-PCA_Automatic$x[,1])
+
+plot ( neg_PC2~ neg_PC1, pch=19, 
+      xlab = paste("PC1, all species, ", round(summary_PCA_Automatic$PC.summary[2,1]*100), "%", sep = ""),
+      ylab = paste ("PC2, ",round(summary_PCA_Automatic$PC.summary[2,2]*100), "%", sep = "")  ,
+      xlim=c(-0.23, 0.1), asp=TRUE, bty="n ")
+text (neg_PC2 ~ neg_PC1, labels=gdf_automatic$SpecData.Abbreviation, adj = 1.1 )
+grid.raster(Img_full, x = unit(0.2, "npc"), y = unit(0.31, "npc"), height = 0.3 )
+text (neg_PC2 ~ neg_PC1, labels=gdf_automatic$SpecData.Abbreviation, adj = 1.1 )
+#dev.off()
+
+
+
+
+
+```

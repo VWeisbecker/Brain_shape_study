@@ -1,0 +1,32 @@
+---
+title: "01_2_Marsbrain_Read_in_compute_Neo/Isocortex_volumes"
+author: "Vera Weisbecker"
+date: "26/10/2020"
+output: html_document
+---
+
+```{r}
+#Data from Pirlot 1981 - hand typed table from the manuscript
+Pirlot_data <- read.csv("../Data/Raw/Pirlot_Neocortex_volume_data.csv", header = TRUE, row.names = 1)
+
+#This is the data file from the supplementary file of Jyothilakhsmi et al. 2020 with only volumetric data (in mm3) considered
+Jyothilakhsmi_data <- na.omit(read.csv("../Data/Raw/Jyothilakshmi_Gurov_Ashw20_volume_data.csv", header=TRUE, row.names = 1) )
+na.omit(Jyothilakhsmi_data) 
+
+
+# Producing log shape ratio of neocortex (Pirlot) and grey matter volume (Jyothilakshmi) by dividing by the respective dataset's geometric mean
+
+Neocx_P <-  log(Pirlot_data$N / (apply(Pirlot_data, 1, prod)^(1/ncol(Pirlot_data))))
+GreyM_J <-  log(Jyothilakhsmi_data$Iso..and.periallo.Cx.GM.volume / (apply(Jyothilakhsmi_data, 1, prod)^(1/ncol(Jyothilakhsmi_data))))
+
+
+plot(log(Jyothilakhsmi_data$Iso..and.periallo.Cx.GM.volume) ~log (Jyothilakhsmi_data$Brain.volume) )
+text(log(Jyothilakhsmi_data$Iso..and.periallo.Cx.GM.volume) ~ log (Jyothilakhsmi_data$Brain.volume), labels = rownames(Jyothilakhsmi_data))
+
+#Write csv files just of the LSRs; these files are manually entered into the raw dataset used for all analyses in this ms.
+write.csv(Neocx_P, file = "../Data/Raw/Pirlot_Neoc_LSR.csv")
+write.csv(GreyM_J, file = "../Data/Raw/Jyothilakhsmi_GreyMatter_LSR.csv")
+
+rm(list = ls(all.names = TRUE)) #
+
+```

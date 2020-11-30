@@ -1,0 +1,445 @@
+---
+title: "Comparing manual vs automatically placed patches"
+author: "Vera Weisbecker and Emma Sherratt"
+date: "24 February 2020"
+output: html_document
+---
+
+
+
+```{r}
+
+#Code that is preliminary analysis but not dedicated to reading in (e.g. replicability analysis) is commented out to expedite read in
+
+# Load libraries and version the code was last run on
+library(rgl) #version 0.100.54
+library(geomorph) #version 3.3.1
+library(abind) #version 1.4-5
+library(plyr) #version 1.8.6
+library(vegan) #version 2.5-6
+library(ape) #version 5.4-1
+library(geiger) #version 2.0.7
+library(nlme) #version 2.1-149
+library(caper) #version 1.0.1
+library(Morpho) #version 2.8
+
+
+```
+
+
+# Read in MANUAL patch placements
+
+```{r }
+# read in all others and set parameters
+
+
+iter = 1000 # setting number of iterations for all of the phylogenetic analyses
+
+# Read in classifiers and specimen volumes data 
+ind.SpecData <- read.csv("../Data/Raw/Specimen_data.csv", header=T, row.names = 1 )
+
+#For the sake of having everything in one spot, a lot of additional acquisition notes are in this file. Paring it down to what is required for this analysis
+ind.SpecData <- ind.SpecData[,c(1:13, 19:20)]
+
+
+####~~~~~~~~~~~~~~loading 3d coordinate files~~~~~~~~~~~~~~~~~####
+
+#FIRST REPLICATE DATASET
+filelist <- list.files(path= "../Data/Raw/Replicates_1", pattern = "*.txt")
+names <- gsub (".txt", "", filelist) # extracts names of specimens from the file name
+filelist <- paste("../Data/Raw/Replicates_1/", filelist, sep="") # rename with path
+coords <- NULL # make empty object that will be filled with 3D array of coordinate data
+for (i in 1:length(filelist)){
+  temp <- read.morphologika(filelist[i])
+  k <- dim(temp)[1]
+  coords <- rbind(coords, two.d.array(temp)) }
+rep.1 <- arrayspecs(coords, k, 3)
+dimnames(rep.1)[[3]] <- names
+remove(i, filelist, names, k, coords, temp) # clean up environment
+
+##SECOND REPLICATE DATASET
+filelist <- list.files(path= "../Data/Raw/Replicates_2", pattern = "*.txt")
+names <- gsub (".txt", "", filelist) # extracts names of specimens from the file name
+filelist <- paste("../Data/Raw/Replicates_2/", filelist, sep="") # rename with path
+coords <- NULL # make empty object that will be filled with 3D array of coordinate data
+for (i in 1:length(filelist)){
+  temp <- read.morphologika(filelist[i])
+  k <- dim(temp)[1]
+  coords <- rbind(coords, two.d.array(temp)) }
+rep.2 <- arrayspecs(coords, k, 3)
+dimnames(rep.2)[[3]] <- names
+remove(i, filelist, names, k, coords, temp) # clean up environment
+
+Manual_raw <- abind(rep.1,rep.2) # abind concatenates (stacks) two arrays
+remove(rep.1,rep.2) # clean up environment
+```
+
+# Read in AUTOMATIC patch placements
+
+```{r}
+
+
+
+load("../Data/Processed/Automatic_Patch_Placement_raw.rda")
+
+
+```
+
+
+#GPAs
+
+```{r}
+
+## define sliding semilandmarks on curves (curveslide), and patches (surfslide); these are DIFFERENT in automatic patch placement! 
+curveslide_manual=as.matrix(read.csv("../Data/Raw/curveslide_manual.csv", header=T))
+surfslide_manual=as.matrix(read.csv("../Data/Raw/surfslide_manual.csv",header=T))
+
+## define sliding semilandmarks on curves (curveslide), and patches (surfslide)
+curveslide_automatic=as.matrix(read.csv("../Data/Raw/curveslide_automatic.csv", header=T))
+surfslide_automatic=as.matrix(read.csv("../Data/Raw/surfslide_automatic.csv",header=T))
+
+### GPA of both sets of replicates, with sliding
+Manual_GPA <- gpagen(Manual_raw, surfaces = surfslide_manual, curves = curveslide_manual)
+Automatic_GPA <- gpagen(Automatic_Raw, surfaces = surfslide_automatic, curves = curveslide_automatic)
+
+#test if all worked, commented out here for speed of running script
+
+# plot3d(Manual_GPA$coords[,,5], asp=FALSE)
+# 
+# plot3d(Automatic_GPA$coords[,,5], asp=FALSE)
+
+#Quick check to see if the csizes are equivalent - an important check because some plys were exported from Mimics too large for technical reasons (refer to Patch Placement code)
+#plot(Manual_GPA$Csize~ Automatic_GPA$Csize)
+#text(Manual_GPA$Csize~ Automatic_GPA$Csize, labels=(dimnames(Manual_GPA$coords)[[3]]))
+
+#remove objects no longer needed
+remove(curveslide_manual, surfslide_manual, curveslide_automatic, surfslide_automatic)
+
+```
+
+
+#compare replication error - commented out here to run script quicker
+
+```{r}
+
+n=length(dimnames(Manual_GPA$coords[,,])[[3]])/2
+individuals <- dimnames(Manual_GPA$coords)[[3]] # name for each pair shouldbe same, so not _1, _2
+replicate <- c(rep(1, n), rep(2, n)) # creates a vector designating specimens to a replicate
+
+
+#Repeatability for Manual coordinates
+rep.er <- procD.lm(Manual_GPA$coords ~ factor(individuals))
+((rep.er$aov.table$MS[1] - rep.er$aov.table$MS[2])/2) / (rep.er$aov.table$MS[2] + ((rep.er$aov.table$MS[1] - rep.er$aov.table$MS[2])/2))
+
+
+# repeatability for Automatically placed coordinates
+rep.er <- procD.lm(Automatic_GPA$coords ~ factor(individuals))
+((rep.er$aov.table$MS[1] - rep.er$aov.table$MS[2])/2) / (rep.er$aov.table$MS[2] + ((rep.er$aov.table$MS[1] - rep.er$aov.table$MS[2])/2))
+
+remove(n, individuals,rep.er, replicate)
+
+```
+
+#Compare how replication error differences may affect the main variation:
+
+```{r}
+# par(mfrow=c(2,1))
+# 
+ PCA_Manual <- gm.prcomp(Manual_GPA$coords)
+# 
+# PCA_summary <- summary(PCA_Manual)
+# 
+# #Ugh I miss the quick simplicity of PlotTangetSpace!
+# plot(PCA_Manual$x[,2] ~ PCA_Manual$x[,1], pch = 19)
+# text( PCA_Manual$x[,2] ~ PCA_Manual$x[,1],  labels = dimnames (Manual_GPA$coords)[[3]])
+# 
+PCA_Automatic <- gm.prcomp(Automatic_GPA$coords)
+# 
+# plot(PCA_Automatic$x[,2] ~ PCA_Automatic$x[,1], pch = 19)
+# text( PCA_Automatic$x[,2] ~ PCA_Automatic$x[,1],  labels = dimnames (Automatic_GPA$coords)[[3]])
+# 
+# #The morphospaces are very similar; this can be tested across all PCAs using a Mantel test in the Vegan package:
+# 
+ Manual_dist <- dist(PCA_Manual$x) ; 
+ Automatic_dist <- dist(PCA_Automatic$x)
+ 
+ #The matrix correlation is 0.97, so the protocols seem equivalent.
+ mantel(Manual_dist,Automatic_dist,method="pearson", permutations=9999) 
+ 
+ remove (Manual_dist, Automatic_dist)
+
+
+```
+
+# Make a figure to show that the estimated main variation as per PC1 is near-identical
+```{r}
+
+usrMat.dorsal<- as.matrix (read.csv("../Figures/usrMat.dorsal.csv"))
+
+open3d( windowRect=c(0,0,1200,1200), userMatrix=usrMat.dorsal)
+
+mfrow3d(nr=1, nc=2)
+
+plotRefToTarget(PCA_Automatic$shapes$shapes.comp1$min, mshape(Automatic_GPA$coords), method="vector" )
+plotRefToTarget(PCA_Manual$shapes$shapes.comp1$min, mshape(Manual_GPA$coords), method="vector" )
+
+rgl.snapshot("../Figures/Supp_PC1_comp.png", fmt = "png", top=TRUE )
+
+remove(Manual_dist,Automatic_dist, PCA_Manual, PCA_Automatic)
+
+```
+
+
+# (not reported in ms but just out of interest - P. ingrami such an outlier in the automatic placement mainly because it better captures the flatness and ventral concavity.
+```{r}
+# 
+# rgl.open()
+# bg3d("white")
+# 
+# plotRefToTarget(mshape(Manual_GPA$coords), Manual_GPA$coords[,,141], method="vector" )
+# 
+# 
+# rgl.open()
+# bg3d("white")
+# #The automatic placement seems "truer" to the extreme width and flatness, but not much so. 
+# plotRefToTarget(mshape(Automatic_GPA$coords), Automatic_GPA$coords[,,141], method="vector" )
+
+```
+
+#Averaging replicates and removing symmetry
+
+```{r}
+
+#landpair files 
+
+landpairs_manual <- as.matrix(read.csv("../Data/Raw/Landpairs_manual.csv", header = F))
+landpairs_automatic <- as.matrix(read.csv("../Data/Raw/Landpairs_automatic.csv", header = F))
+
+
+#MANUAL Patch
+
+# shape data
+ind.coords_Manual <- aggregate(two.d.array(Manual_GPA$coords) ~ dimnames(Manual_GPA$coords)[[3]], FUN=mean)[,-1]
+rownames(ind.coords_Manual) <- unique(dimnames(Manual_GPA$coords)[[3]])
+ind.coords_Manual <- arrayspecs(ind.coords_Manual, p=ncol(ind.coords_Manual)/3, k=3)
+# centroid size data
+ind.csize_Manual <- as.vector(aggregate(Manual_GPA$Csize ~ dimnames(Manual_GPA$coords)[[3]], FUN=mean)[,-1])
+names(ind.csize_Manual) <- unique(dimnames(Manual_GPA$coords)[[3]])
+# ind.csize_Manual - These are the individuals Csize data for plotting specimen allometry graphs
+
+### Bilateral symmetry GPA on averaged specimens
+
+GPASymm <- bilat.symmetry(ind.coords_Manual, ind=dimnames(ind.coords_Manual)[[3]], side=NULL, replicate=NULL, object.sym=TRUE, land.pairs =landpairs_manual)
+dimnames(GPASymm$symm.shape)[[3]] <- dimnames(ind.coords_Manual)[[3]] # rename
+
+# ind.coords_Manual - These are the individuals shape data for plotting specimen graphs
+ind.coords_Manual <- GPASymm$symm.shape # replace with new symm.shape
+
+#AUTOMATIC Patch - same code
+
+
+# shape data
+ind.coords_Automatic <- aggregate(two.d.array(Automatic_GPA$coords) ~ dimnames(Automatic_GPA$coords)[[3]], FUN=mean)[,-1]
+rownames(ind.coords_Automatic) <- unique(dimnames(Automatic_GPA$coords)[[3]])
+ind.coords_Automatic <- arrayspecs(ind.coords_Automatic, p=ncol(ind.coords_Automatic)/3, k=3)
+
+ind.csize_Automatic <- as.vector(aggregate(Automatic_GPA$Csize ~ dimnames(Automatic_GPA$coords)[[3]], FUN=mean)[,-1])
+names(ind.csize_Automatic) <- unique(dimnames(Automatic_GPA$coords)[[3]])
+
+
+GPASymm <- bilat.symmetry(ind.coords_Automatic, ind=dimnames(ind.coords_Automatic)[[3]], side=NULL, replicate=NULL, object.sym=TRUE, land.pairs =landpairs_automatic)
+dimnames(GPASymm$symm.shape)[[3]] <- dimnames(ind.coords_Automatic)[[3]] # rename
+
+ind.coords_Automatic <- GPASymm$symm.shape # replace with new symm.shape
+
+remove(landpairs_automatic,landpairs_manual)
+
+```
+
+# This is to just briefly check that the symmetry was removed successfully (i.e. the landpair files were correct); commented out for speedily running the code.
+
+```{r}
+# 
+# rgl.open()
+# bg3d("white")
+# 
+# plot3d(ind.coords_Manual[,,5], asp=FALSE)
+# text3d ( ind.coords_Manual[,,5], texts =  c(1:71))
+# 
+# 
+# 
+# rgl.open()
+# bg3d("white")
+# 
+# plot3d(ind.coords_Automatic[,,5], asp=FALSE)
+# text3d ( ind.coords_Automatic[,,5], texts =  c(1:71))
+# 
+# 
+# rgl.open()
+# bg3d("white")
+# 
+# plotRefToTarget(mshape(ind.coords_Manual), ind.coords_Manual[,,5], method="vector" )
+# 
+# 
+# rgl.open()
+# bg3d("white")
+# 
+# plotRefToTarget(mshape(ind.coords_Automatic), ind.coords_Automatic[,,5], method="vector" )
+
+
+
+```
+
+
+
+
+#Averaging by species, this chunk treats automatic and manual at the same time
+
+```{r}
+
+# Make a vector of species labels from the specimen names
+species <- matrix(unlist(strsplit(dimnames(ind.coords_Manual)[[3]], "_")), ncol=2, byrow = T)[,1]
+
+# Reorder the classifier file to match this up with shape data
+ind.SpecData <- ind.SpecData[match(dimnames(ind.coords_Manual)[[3]],rownames(ind.SpecData)),]
+
+#check that re-ordering worked for automatic and manual
+match(dimnames(ind.coords_Manual)[[3]],rownames(ind.SpecData))==c(1:84)
+match(dimnames(ind.coords_Automatic)[[3]],rownames(ind.SpecData))==c(1:84)
+
+# Add a column of species labels from the specimen names
+ind.SpecData$Abbreviation <- species
+
+#Add a column for just macropodoids vs the rest
+ind.SpecData$Macropod <- NA
+
+## Filling it with the two different factors
+ind.SpecData$Macropod=as.factor(ifelse(as.character(ind.SpecData$Cladename) == "Macropodoid", "yes", "no"))
+
+
+# Average classifiers and volumes data by species
+SpecData <- ddply(ind.SpecData, .(Species), summarize, Clade_major=unique(Clade_major),Cladename=unique(Cladename),Locomotion=unique(Locomotion), Fossil=unique(Fossil), Macropod = unique(Macropod), Bodymass_g=mean(Bodymass_g),Brain_mm3=mean(Brain_mm3), OB=mean(OB), Cerebrum=mean(Cerebrum), Cerebellum=mean(Cerebellum), Medulla=mean(Medulla), Grey_Matter_LSR = unique(Iso_and_periallo_Cx_GM_vol_Jyothilakshmi), Neocortex_LSR = unique(Neocortex_Pirlot), Abbreviation=unique(Abbreviation))
+
+SpecData <- SpecData[order(SpecData$Abbreviation),]# Alphabetical by Gsp abbreviation
+
+# Averaging shape data by species
+
+#MANUAL
+
+coords_Manual <- (aggregate(two.d.array(ind.coords_Manual) ~ ind.SpecData$Abbreviation, FUN=mean))[,-1]
+rownames(coords_Manual) <- unique(ind.SpecData$Abbreviation)
+coords_Manual <- arrayspecs(coords_Manual,p=dim(ind.coords_Manual)[1],k=3) # 3D array
+
+#AUTOMATIC
+
+coords_Automatic <- (aggregate(two.d.array(ind.coords_Automatic) ~ ind.SpecData$Abbreviation, FUN=mean))[,-1]
+rownames(coords_Automatic) <- unique(ind.SpecData$Abbreviation)
+coords_Automatic <- arrayspecs(coords_Automatic,p=dim(ind.coords_Automatic)[1],k=3) # 3D array
+
+
+
+#Checking a distinctive shape (P. ingrami) to ensure all is well
+dimnames(coords_Automatic)[[3]][38]
+plot3d(coords_Automatic[,,38], asp=FALSE)
+text3d(coords_Automatic[,,38], texts=c(1:71))
+
+# Averaging centroid size by species
+#MANUAL
+Csize_Manual<- as.vector(aggregate(as.matrix(ind.csize_Manual ) ~ ind.SpecData$Abbreviation, FUN=mean)[,-1])
+names(Csize_Manual)<-unique(ind.SpecData$Abbreviation)
+
+#AUTOMATIC
+
+Csize_Automatic<- as.vector(aggregate(as.matrix(ind.csize_Automatic ) ~ ind.SpecData$Abbreviation, FUN=mean)[,-1])
+names(Csize_Automatic)<-unique(ind.SpecData$Abbreviation)
+
+
+### Reorder SpecData to match the shape and csize datasets - this needs doing only once
+dimnames(coords_Automatic)[[3]]==dimnames(coords_Manual)[[3]]
+
+
+SpecData <- SpecData[match(SpecData$Abbreviation, dimnames(coords_Automatic)[[3]]),] 
+
+#Check order
+match(SpecData$Abbreviation, dimnames(coords_Manual)[[3]]) == c(1:57)
+
+rownames(SpecData) <- SpecData$Species
+
+### Rename to match up with tree below
+dimnames(coords_Manual)[[3]] <- names(Csize_Manual) <- SpecData$Species
+dimnames(coords_Automatic)[[3]] <- names(Csize_Automatic) <- SpecData$Species
+
+```
+
+
+#Now read in the phylogeny
+
+```{r}
+
+# Read in trees
+# ALREADY RUN and "paleotree_dated_Yalk_resolved.tre" in folder so ignore indented below
+# Tree1=read.nexus("Phylogenies/paleotree_dated_Yalk1.tre")
+# Tree2=read.nexus("Phylogenies/paleotree_dated_Yalk2.tre")
+# Tree3=read.nexus("Phylogenies/paleotree_dated_Yalk3.tre")
+# write.nexus(list(Tree1=Tree1,Tree2=Tree2,Tree3=Tree3), file="Phylogenies/paleotree_dated_Yalk_unresolved.tre")
+## There are 3 trees, with "Yalkaparidon_coheni" in different positions
+# Tree 1 has 9 polytomies
+# Tree 2 has 10 polytomies
+# Tree 3 has 9 polytomies
+# Therefore it is necessary to pseudoresolve the trees prior to analysis.
+# Randomly resolve polytomies to zero branch lengths
+# treelist <- list(Tree1 = multi2di(Tree1, random = TRUE), 
+#                  Tree2 = multi2di(Tree2, random = TRUE), 
+#                  Tree3 = multi2di(Tree3, random = TRUE)) 
+# # run multi2di on each tree and concatenate into a list
+# write.nexus(treelist, file="Phylogenies/paleotree_dated_Yalk_resolved.tre")
+# remove(treelist,Tree1,Tree2,Tree3)
+
+# Read in New Trees file
+# a nexus file of the three topologies, which have the polytomies randomly resolved with 0 length branches
+trees <- read.nexus("../Data/Raw/Phylogenies/paleotree_dated_Yalk_resolved.tre") 
+
+# reorders to tip labels; all trees have same tip order (see above)
+coords_Manual <- coords_Manual[,,trees$Tree1$tip.label] 
+coords_Automatic <- coords_Automatic[,,trees$Tree1$tip.label] 
+
+# reorders to tip labels
+Csize_Manual <- Csize_Manual[trees$Tree1$tip.label] 
+Csize_Automatic <- Csize_Automatic[trees$Tree1$tip.label] 
+
+SpecData <- SpecData[trees$Tree1$tip.label,] # reorders to tip labels
+
+#Test that dimnames and tree tip labels are ordered correctly
+match(dimnames(coords_Automatic)[[3]], trees$Tree1$tip.label) == c(1:length(trees$Tree1$tip.label))
+match(dimnames(coords_Manual)[[3]], trees$Tree1$tip.label) == c(1:length(trees$Tree1$tip.label))
+
+
+#Make gdf data frame 
+
+gdf_manual <- geomorph.data.frame(coords_Manual=coords_Manual, Csize_Manual=Csize_Manual, SpecData=SpecData)
+
+gdf_manual$coords <- gdf_manual$coords_Manual
+gdf_manual$Csize <- gdf_manual$Csize_Manual
+
+attributes(gdf_manual)
+
+gdf_manual <- gdf_manual[-c(13,14)]
+attributes(gdf_manual)
+
+
+
+gdf_automatic <- geomorph.data.frame(coords=coords_Automatic, Csize=Csize_Automatic, SpecData=SpecData)
+
+
+attributes(gdf_automatic)
+
+
+```
+
+#Save the workspace - it was cleaned up as I went along to contain what is necessary for the next analyses
+
+```{r}
+save.image(file = "../Data/Processed/brain_data_processed.rda")
+
+
+```

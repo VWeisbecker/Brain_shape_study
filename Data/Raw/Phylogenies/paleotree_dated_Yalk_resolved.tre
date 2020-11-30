@@ -1,0 +1,129 @@
+#NEXUS
+[R-package APE, Wed Aug 02 12:53:21 2017]
+
+BEGIN TAXA;
+	DIMENSIONS NTAX = 57;
+	TAXLABELS
+		Borhyaena_tuberata
+		Caenolestes_fuliginosus
+		Yalkaparidon_coheni
+		Dromiciops_gliroides
+		Balbaroo_nalima
+		Ekaltadeta_ima
+		Hypsiprymnodon_moschatus
+		Simosthenurus_occidentalis
+		Wallabia_bicolor
+		Notamacropus_rufogriseus
+		Macropus_giganteus
+		Osphranter_rufus
+		Petrogale_xanthopus
+		Dendrolagus_lumholtzi
+		Bettongia_tropica
+		Potorous_tridactylus
+		Acrobates_pygmaeus
+		Distoechurus_pennatus
+		Dactylopsila_trivirgata
+		Petaurus_australis
+		Petaurus_breviceps
+		Petauroides_volans
+		Pseudocheirus_occidentalis
+		Pseudochirops_cupreus
+		Cercartetus_caudatus
+		Phalanger_orientalis
+		Trichosurus_vulpecula
+		Phascolarctos_cinereus
+		Thylacoleo_carnifex
+		Lasiorhinus_latifrons
+		Lasiorhinus_krefftii
+		Vombatus_ursinus
+		Silvabestius_johnnilandi
+		Nimbadon_lavarackorum
+		Zygomaturus_trilobus
+		Notoryctes_typhlops
+		Barinya_wangala
+		Myrmecobius_fasciatus
+		Antechinus_flavipes
+		Phascogale_tapoatafa
+		Dasyurus_hallucatus
+		Sarcophilus_harrisii
+		Planigale_ingrami
+		Sminthopsis_macroura
+		Nimbacinus_dicksoni
+		Thylacinus_cynocephalus
+		Galadi_speciosus
+		Macrotis_lagotis
+		Echymipera_kalubu
+		Echymipera_rufescens
+		Isoodon_macrourus
+		Isoodon_obesulus
+		Perameles_nasuta
+		Caluromys_philander
+		Monodelphis_domestica
+		Didelphis_virginiana
+		Philander_opossum
+	;
+END;
+BEGIN TREES;
+	TRANSLATE
+		1	Borhyaena_tuberata,
+		2	Caenolestes_fuliginosus,
+		3	Yalkaparidon_coheni,
+		4	Dromiciops_gliroides,
+		5	Balbaroo_nalima,
+		6	Ekaltadeta_ima,
+		7	Hypsiprymnodon_moschatus,
+		8	Simosthenurus_occidentalis,
+		9	Wallabia_bicolor,
+		10	Notamacropus_rufogriseus,
+		11	Macropus_giganteus,
+		12	Osphranter_rufus,
+		13	Petrogale_xanthopus,
+		14	Dendrolagus_lumholtzi,
+		15	Bettongia_tropica,
+		16	Potorous_tridactylus,
+		17	Acrobates_pygmaeus,
+		18	Distoechurus_pennatus,
+		19	Dactylopsila_trivirgata,
+		20	Petaurus_australis,
+		21	Petaurus_breviceps,
+		22	Petauroides_volans,
+		23	Pseudocheirus_occidentalis,
+		24	Pseudochirops_cupreus,
+		25	Cercartetus_caudatus,
+		26	Phalanger_orientalis,
+		27	Trichosurus_vulpecula,
+		28	Phascolarctos_cinereus,
+		29	Thylacoleo_carnifex,
+		30	Lasiorhinus_latifrons,
+		31	Lasiorhinus_krefftii,
+		32	Vombatus_ursinus,
+		33	Silvabestius_johnnilandi,
+		34	Nimbadon_lavarackorum,
+		35	Zygomaturus_trilobus,
+		36	Notoryctes_typhlops,
+		37	Barinya_wangala,
+		38	Myrmecobius_fasciatus,
+		39	Antechinus_flavipes,
+		40	Phascogale_tapoatafa,
+		41	Dasyurus_hallucatus,
+		42	Sarcophilus_harrisii,
+		43	Planigale_ingrami,
+		44	Sminthopsis_macroura,
+		45	Nimbacinus_dicksoni,
+		46	Thylacinus_cynocephalus,
+		47	Galadi_speciosus,
+		48	Macrotis_lagotis,
+		49	Echymipera_kalubu,
+		50	Echymipera_rufescens,
+		51	Isoodon_macrourus,
+		52	Isoodon_obesulus,
+		53	Perameles_nasuta,
+		54	Caluromys_philander,
+		55	Monodelphis_domestica,
+		56	Didelphis_virginiana,
+		57	Philander_opossum
+	;
+	TREE * Tree1 = [&R] (1:75.4846,((2:82.4836,(3:58.09585,(4:69.2081,((((((7:29.3688,6:11.6188):0,(5:11.9838,((8:14.4861,((9:5.3162,((11:4.4829,12:4.4829):0,10:4.4829):0.8333):2.1447,(13:6.1726,14:6.1726):1.2883):7.2578):2.1337,(15:13.4733,16:13.4733):3.3791):12.5164):0):17.6184,((17:27.1643,18:27.1643):13.4791,((19:23.7418,(20:21.6033,21:21.6033):2.1385):8.5869,((23:24.1489,22:24.1489):0,24:24.1489):8.1798):8.3147):6.3438):0,(25:43.4679,(26:14.4091,27:14.4091):29.0588):3.5193):5.7916,((29:30.20415,28:31.11):0,(((30:3.00415,31:3.00415):3.00415,32:6.0083):23.015033,(33:2.086667,(34:5.105,35:18.83915):7.191667):2.086667):2.086667):21.6688):13.9185,((36:65.8478,(47:31.06285,(48:31.0479,((49:2.6946,50:2.6946):11.6155,((51:2.1,52:2.1):3.771,53:5.6871):8.623):16.7378):17.39995):17.39995):0,(37:20.4563,(((45:11.97065,46:26.61065):11.97065,38:38.5813):0,(((39:12.9427,40:12.9427):5.5817,(41:9.4349,42:9.4349):9.0895):6.3992,(43:19.0559,44:19.0559):5.8677):13.6577):0):27.2665):0.8495):2.5108):6.63775):6.63775):4.501,(54:38.3,(55:29.0694,(56:5.526,57:5.526):23.5434):9.2306):48.6846):5);
+	TREE * Tree2 = [&R] (1:75.4846,((2:82.4836,(4:69.2081,(((((25:43.4679,(26:14.4091,27:14.4091):29.0588):3.5193,((7:29.3688,6:11.6188):0,(((8:14.4861,((9:5.3162,((11:4.4829,12:4.4829):0,10:4.4829):0.8333):2.1447,(13:6.1726,14:6.1726):1.2883):7.2578):2.1337,(15:13.4733,16:13.4733):3.3791):12.5164,5:11.9838):0):17.6184):0,((17:27.1643,18:27.1643):13.4791,((19:23.7418,(20:21.6033,21:21.6033):2.1385):8.5869,((22:24.1489,24:24.1489):0,23:24.1489):8.1798):8.3147):6.3438):5.7916,((28:31.11,(((30:3.00415,31:3.00415):3.00415,32:6.0083):23.015033,(33:2.086667,(34:5.105,35:18.83915):7.191667):2.086667):2.086667):0,29:30.20415):21.6688):13.9185,(((47:31.06285,(48:31.0479,((49:2.6946,50:2.6946):11.6155,((51:2.1,52:2.1):3.771,53:5.6871):8.623):16.7378):17.39995):17.39995,(((38:38.5813,(45:11.97065,46:26.61065):11.97065):0,(((39:12.9427,40:12.9427):5.5817,(41:9.4349,42:9.4349):9.0895):6.3992,(43:19.0559,44:19.0559):5.8677):13.6577):0,37:20.4563):27.2665):0,(3:48.0978,36:65.8478):0):0.8495):2.5108):13.2755):4.501,(54:38.3,(55:29.0694,(56:5.526,57:5.526):23.5434):9.2306):48.6846):5);
+	TREE * Tree3 = [&R] (1:75.4846,((2:82.4836,(4:69.2081,((3:41.98805,(((((17:27.1643,18:27.1643):13.4791,((19:23.7418,(20:21.6033,21:21.6033):2.1385):8.5869,((24:24.1489,22:24.1489):0,23:24.1489):8.1798):8.3147):6.3438,(25:43.4679,(26:14.4091,27:14.4091):29.0588):3.5193):0,((7:29.3688,(5:11.9838,((8:14.4861,((9:5.3162,((11:4.4829,12:4.4829):0,10:4.4829):0.8333):2.1447,(13:6.1726,14:6.1726):1.2883):7.2578):2.1337,(15:13.4733,16:13.4733):3.3791):12.5164):0):0,6:11.6188):17.6184):5.7916,((28:31.11,29:30.20415):0,(((30:3.00415,31:3.00415):3.00415,32:6.0083):23.015033,(33:2.086667,(34:5.105,35:18.83915):7.191667):2.086667):2.086667):21.6688):6.95925):6.95925,(((((45:11.97065,46:26.61065):11.97065,38:38.5813):0,(37:20.4563,(((39:12.9427,40:12.9427):5.5817,(41:9.4349,42:9.4349):9.0895):6.3992,(43:19.0559,44:19.0559):5.8677):13.6577):0):27.2665,36:65.8478):0,(47:31.06285,(48:31.0479,((49:2.6946,50:2.6946):11.6155,((51:2.1,52:2.1):3.771,53:5.6871):8.623):16.7378):17.39995):17.39995):0.8495):2.5108):13.2755):4.501,(54:38.3,(55:29.0694,(56:5.526,57:5.526):23.5434):9.2306):48.6846):5);
+END;
