@@ -800,8 +800,10 @@ text(0.1, 0.025, labels = "Peramelemorphia", col = "#9966FF" )
 text(0.11, -0.07, labels = "Dasyuromorphia", col = "blue" )
 text(-0.09, -0.04, labels = "Didelphimorphia", col = "dark green" )
 text(-0.07, -0.016, labels = "Vombatiformes", col = "#FFCC00" )
-
-
+text(-0.122, 0.01, labels = expression (italic("B. nalima")), col = "#CC0000" )
+text(-0.13, -0.0035, labels = expression (italic("E.ima")), col = "#CC0000" )
+lines(c(-0.0689497454, -0.105), c(0.0037306146, 0.009), col = "#CC0000" ) # Balbaroo
+lines(c (-0.0589188992, -0.12), c(-0.0033289847, -0.0055),col = "#CC0000") #E.ima
 
 #This was not done in a loop because the margins needed differential setting so all the brain images appear the same size (smaller mar numbers mean larger representation of the brain.
 
@@ -835,6 +837,7 @@ tmp <- readPNG(paste("../Figures/Collections_of_sub_images/Mesh_PC/Mesh_PC",2,"m
   text(60,10, labels=paste("PC",2," max.",sep=""),cex=1.3)
   
 dev.off() # end writing png file
+
 
 ```
 
