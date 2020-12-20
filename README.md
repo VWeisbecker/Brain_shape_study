@@ -1,7 +1,7 @@
 # Marsupial Brain Shape Evolution 
 Code authors: Emma Sherratt, Vera Weisbecker
 
-This code runs all analyses for the manuscript "Global elongation and high shape flexibility as an evolutionary hypothesis of accommodating mammalian brains into skulls" by Weisbecker et al. (in review.)
+This code runs all analyses for the manuscript "Global elongation and high shape flexibility as an evolutionary hypothesis of accommodating mammalian brains into skulls" by Weisbecker et al. (accepted at Evolution; an open-access pre-print is available on [Biorxiv](https://www.biorxiv.org/content/10.1101/2020.12.06.410928v1).
 
 
 *All scripts are in RMarkdown format (.Rmd) and can be opened in RStudio. There, you can edit and run code chunks as normal or use the Knit button to create HTML versions with both code and output. After cloning this repo, remember to either set your working directory to the Weisbecker_et_al_Brain_shape folder on your computer or open an RStudio project from that folder.*
