@@ -6,7 +6,7 @@ This code runs all analyses for the manuscript "Global elongation and high shape
 
 *All scripts are in RMarkdown format (.Rmd) and can be opened in RStudio. There, you can edit and run code chunks as normal or use the Knit button to create HTML versions with both code and output. After cloning this repo, remember to either set your working directory to the Weisbecker_et_al_Brain_shape folder on your computer or open an RStudio project from that folder.*
 
-*The code is commented out and explains where the various data and auxiliary files are needed. The following is just a brief overview.
+*The code is commented out and explains where the various data and auxiliary files are needed. The following is just a brief overview.*
 
 ## Data
 **Raw data:**
