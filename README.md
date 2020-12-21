@@ -11,8 +11,8 @@ This code runs all analyses for the manuscript "Global elongation and high shape
 ## Data
 **Raw data:**
 * The [Raw Data](/Data/Raw/) folder in this repository contains shape coordinates, a specimen data file for information associated with each specimen, as well as auxiliary files for semi-landmark sliding for automatic and manual landmark placements as required by the code
-* [Ply files for automatic landmark placement](http://10.6084/m9.figshare.12253409) is a figshare repository that needs to be pasted in to [Data/Raw](/Data/Raw) for automatic landmark placement to work *NB this doi link will start working upon acceptance of the manuscript*
-* [Endocasts and endocast dissections](http://10.6084/m9.figshare.12284456) is a figshare repository containing endocast stl files (on which the fixed/curve and manual surface landmarks were placed) and dissected brain partition volumes. *NB this doi link will start working upon publication of the paper*
+* [Ply files for automatic landmark placement](http://10.6084/m9.figshare.12253409) is a figshare repository that needs to be pasted in to [Data/Raw](/Data/Raw) for automatic landmark placement to work
+* [Endocasts and endocast dissections](http://10.6084/m9.figshare.12284456) is a figshare repository containing endocast stl files (on which the fixed/curve and manual surface landmarks were placed) and dissected brain partition volumes. 
 
 
 **Phylogenetic data:**
