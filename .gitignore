@@ -32,3 +32,5 @@ Data/Processed/WeisbETal_Data.RData
 *.zip
 *.indd
 *.tscproj
+*.eps
+*.ai
